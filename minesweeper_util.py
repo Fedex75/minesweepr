@@ -64,7 +64,8 @@ class Board(object):
                 pos = (row + 1, col + 1)
                 self.cells[pos] = BoardCell(c, self.cell_name(*pos))
 
-    def adjacent(self, (row, col)):
+    def adjacent(self, pos):
+        row, col = pos
         for r in range(max(row - 1, 1), min(row + 2, self.height + 1)):
             for c in range(max(col - 1, 1), min(col + 2, self.width + 1)):
                 pos = (r, c)
