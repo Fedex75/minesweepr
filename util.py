@@ -1,10 +1,11 @@
 import math
 import operator
 import collections
+import functools
 
 def fact_div(a, b):
     """return a! / b!"""
-    return product(xrange(b + 1, a + 1)) if a >= b else 1. / fact_div(b, a)
+    return product(range(b + 1, a + 1)) if a >= b else 1. / fact_div(b, a)
 
 def choose(n, k):
     """return n choose k
@@ -21,13 +22,13 @@ def peek(iterable):
 
     useful for extracting singletons, or when you're managing iteration
     yourself"""
-    return iter(iterable).next()
+    return next(iter(iterable))
 
 def product(n):
     """return the product of a set of numbers
 
     n -- an iterable of numbers"""
-    return reduce(operator.mul, n, 1)
+    return functools.reduce(operator.mul, n, 1)
 
 def listify(x):
     """convert object to a list; if not an iterable, wrap as a list of length 1"""
@@ -62,7 +63,7 @@ def map_reduce(data, emitfunc=lambda rec: [(rec,)], reducefunc=lambda v: v):
             except ValueError:
                 k, v = emission[0], None
             mapped[k].append(v)
-    return dict((k, reducefunc(v)) for k, v in mapped.iteritems())
+    return dict((k, reducefunc(v)) for k, v in mapped.items())
 
 class ImmutableMixin(object):
     """mixin for immutable, hashable objects"""

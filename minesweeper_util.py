@@ -144,7 +144,7 @@ def generate_rules(board, total_mines, everything_mode=False):
     num_known_mines = 0    # total number of known mines
 
     rules = []
-    for cell_id, cell in board.cells.iteritems():
+    for cell_id, cell in board.cells.items():
         if cell.is_mine():
             num_known_mines += 1
             if everything_mode:

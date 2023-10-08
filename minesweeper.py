@@ -1,8 +1,9 @@
 import collections
 import itertools
 import operator
-import Queue
+import queue
 from util import *
+import functools
 
 set_ = frozenset
 
@@ -177,9 +178,9 @@ def condense_supercells(rules):
     cell_rules_map = map_reduce(rules, lambda rule: [(cell, rule) for cell in rule.cells], set_)
     # for each 'list of rules appearing in', list of cells that share that ruleset (these cells
     # thus only ever appear together in the same rules)
-    rules_supercell_map = map_reduce(cell_rules_map.iteritems(), lambda (cell, rules): [(rules, cell)], set_)
+    rules_supercell_map = map_reduce(cell_rules_map.items(), lambda t: [(t[1], t[0])], set_)
     # for each original rule, list of 'supercells' appearing in that rule
-    rule_supercells_map = map_reduce(rules_supercell_map.iteritems(), lambda (rules, cell_): [(rule, cell_) for rule in rules], set_)
+    rule_supercells_map = map_reduce(rules_supercell_map.items(), lambda t: [(rule, t[1]) for rule in t[0]], set_)
 
     return ([rule.condensed(rule_supercells_map) for rule in rules], rules_supercell_map.values())
 
@@ -227,6 +228,9 @@ class Reduceable(ImmutableMixin):
     def __repr__(self):
         return 'Reduceable(superrule=%s, subrule=%s)' % (self.superrule, self.subrule)
 
+    def __lt__(self, obj):
+        return True
+
 class CellRulesMap(object):
     """a utility class mapping cells to the rules they appear in"""
 
@@ -253,7 +257,7 @@ class CellRulesMap(object):
     def overlapping_rules(self, rule):
         """return set of rules that overlap 'rule', i.e., have at least one
         cell in common"""
-        return reduce(operator.or_, (self.map[cell_] for cell_ in rule.cells_), set()) - set([rule])
+        return functools.reduce(operator.or_, (self.map[cell_] for cell_ in rule.cells_), set()) - set([rule])
 
     def interference_edges(self):
         """return pairs of all rules that overlap each other; each pair is
@@ -299,7 +303,7 @@ class RuleReducer(object):
         # reverse lookup for rules containing a given cell
         self.cell_rules_map = CellRulesMap()
         # current list of all possible reductions
-        self.candidate_reductions = Queue.PriorityQueue()
+        self.candidate_reductions = queue.PriorityQueue()
         
     def add_rules(self, rules):
         """add a set of rules to the ruleset"""
@@ -388,7 +392,7 @@ class Permutation(ImmutableMixin):
         """return a new permutation by combining this permutation with
         'permu'
         the permutations must be compatible!"""
-        assert all(permu.mapping[k] == v for k, v in self.mapping.iteritems() if k in permu.mapping)
+        assert all(permu.mapping[k] == v for k, v in self.mapping.items() if k in permu.mapping)
         mapping = dict(self.mapping)
         mapping.update(permu.mapping)
         return Permutation(mapping)
@@ -408,13 +412,13 @@ class Permutation(ImmutableMixin):
         e.g., N mines in a supercell of M cells has (M choose N) actual
         configurations
         """
-        return product(choose(len(cell_), k) for cell_, k in self.mapping.iteritems())
+        return product(choose(len(cell_), k) for cell_, k in self.mapping.items())
 
     def _canonical(self):
-        return tuple(sorted(self.mapping.iteritems(), key=lambda (k, v): hash(k)))
+        return tuple(sorted(self.mapping.items(), key=lambda t: hash(t[0])))
 
     def __repr__(self):
-        cell_counts = sorted([(sorted(list(cell)), count) for cell, count in self.mapping.iteritems()])
+        cell_counts = sorted([(sorted(list(cell)), count) for cell, count in self.mapping.items()])
         cell_frags = ['%s:%d' % (','.join(str(c) for c in cell), count) for cell, count in cell_counts]
         return '{%s}' % ' '.join(cell_frags)
 
@@ -643,7 +647,7 @@ class PermutedRuleset(object):
 
         superseded_rules = set()
         decompositions = {}
-        for rule, permu_set in self.permu_map.iteritems():
+        for rule, permu_set in self.permu_map.items():
             decomp = permu_set.decompose()
             if len(decomp) > 1:
                 superseded_rules.add(rule)
@@ -723,7 +727,7 @@ class EnumerationState(object):
         # the current configuration-in-progress
         self.fixed = set()
         # subset of ruleset whose permutations are still 'open'
-        self.free = dict((rule, set(permu_set)) for rule, permu_set in ruleset.permu_map.iteritems())
+        self.free = dict((rule, set(permu_set)) for rule, permu_set in ruleset.permu_map.items())
 
         # helper function (closure)
         self.overlapping_rules = lambda rule: ruleset.cell_rules_map.overlapping_rules(rule)
@@ -735,7 +739,7 @@ class EnumerationState(object):
         """clone this state"""
         state = EnumerationState()
         state.fixed = set(self.fixed)
-        state.free = dict((rule, set(permu_set)) for rule, permu_set in self.free.iteritems())
+        state.free = dict((rule, set(permu_set)) for rule, permu_set in self.free.items())
         state.overlapping_rules = self.overlapping_rules
         state.compatible_rule_index = self.compatible_rule_index
         return state
@@ -743,7 +747,7 @@ class EnumerationState(object):
     def build_compatibility_index(self, rspm):
         """build the constraint index"""
         index = {}
-        for rule, permu_set in rspm.iteritems():
+        for rule, permu_set in rspm.items():
             for permu in permu_set:
                 for rule_ov in self.overlapping_rules(rule):
                     index[(permu, rule_ov)] = rspm[rule_ov].compatible(permu)
@@ -804,7 +808,7 @@ class EnumerationState(object):
     def mine_config(self):
         """convert the set of fixed permutations into a single Permutation
         encompassing the mine configuration for the entire ruleset"""
-        return reduce(lambda a, b: a.combine(b), self.fixed)
+        return functools.reduce(lambda a, b: a.combine(b), self.fixed)
 
     def enumerate(self):
         """recursively generate all possible mine configurations for the ruleset"""
@@ -859,7 +863,7 @@ class FrontTally(object):
         return len(self.subtallies) == 1
 
     def __iter__(self):
-        return self.subtallies.iteritems()
+        return self.subtallies.items()
 
     def normalize(self):
         """normalize sub-tally totals into relative weights such that
@@ -875,7 +879,7 @@ class FrontTally(object):
         all sub-tallies"""
         self.normalize()
         collapsed = map_reduce(self.subtallies.values(), lambda subtally: subtally.collapse(), sum)
-        for entry in collapsed.iteritems():
+        for entry in collapsed.items():
             yield entry
 
     def scale_weights(self, scalefunc):
@@ -910,7 +914,7 @@ class FrontTally(object):
         """
 
         metacell = UnchartedCell(num_uncharted_cells)
-        return FrontTally(dict((num_mines, FrontSubtally.mk(k, {metacell: num_mines})) for num_mines, k in mine_totals.iteritems()))
+        return FrontTally(dict((num_mines, FrontSubtally.mk(k, {metacell: num_mines})) for num_mines, k in mine_totals.items()))
 
     def __repr__(self):
         return str(dict(self.subtallies))
@@ -935,19 +939,19 @@ class FrontSubtally(object):
         """add a configuration to the tally"""
         mult = config.multiplicity() # weight by multiplicity
         self.total += mult
-        for cell_, n in config.mapping.iteritems():
+        for cell_, n in config.mapping.items():
             self.tally[cell_] += n * mult
 
     def finalize(self):
         """after all configurations have been summed, compute relative
         prevalence from totals"""
-        self.tally = dict((cell_, n / float(self.total)) for cell_, n in self.tally.iteritems())
+        self.tally = dict((cell_, n / float(self.total)) for cell_, n in self.tally.items())
         self.finalized = True
 
     def collapse(self):
         """helper function for FrontTally.collapse(); emit all cell expected
         mine values weighted by this sub-tally's weight"""
-        for cell_, expected_mines in self.tally.iteritems():
+        for cell_, expected_mines in self.tally.items():
             yield (cell_, self.total * expected_mines)
 
     @staticmethod
@@ -1090,7 +1094,7 @@ def combine_fronts(tallies, num_uncharted_cells, at_large_mines):
             return FrontPerMineTotals(map_reduce(front_totals, lambda ft: ft, sum))
 
         def __iter__(self):
-            return self.totals.iteritems()
+            return self.totals.items()
         
         def __repr__(self):
             return str(self.totals)
@@ -1170,14 +1174,15 @@ def combine_fronts(tallies, num_uncharted_cells, at_large_mines):
         @staticmethod
         def for_other(min_mines, max_mines):
             """build a starter combined front to represent the 'uncharted cells' region"""
-            return CombinedFront.from_counts_per_num_mines((n, relative_likelihood(n)) for n in xrange(min_mines, max_mines + 1))
+            return CombinedFront.from_counts_per_num_mines((n, relative_likelihood(n)) for n in range(min_mines, max_mines + 1))
         
         def join_with(self, new, min_remaining_mines, max_remaining_mines):
             """combine two combined fronts. min/max remaining mines represent the total remaining mines available
             in all fronts yet to be combined (excluding 'new'). this helps avoid computing combinations whose # mines
             can never add up to the requisite # of board mines. this is also how we converge to a single total # of
             mines upon combining all fronts"""
-            def cross_entry(((a_num_mines, a_fronts), (b_num_mines, b_fronts))):
+            def cross_entry(mine_info):
+                ((a_num_mines, a_fronts), (b_num_mines, b_fronts)) = mine_info
                 combined_mines = a_num_mines + b_num_mines
                 min_mines_at_end = combined_mines + min_remaining_mines
                 max_mines_at_end = combined_mines + max_remaining_mines
@@ -1194,7 +1199,7 @@ def combine_fronts(tallies, num_uncharted_cells, at_large_mines):
             return [e.totals for e in self.totals.popitem()[1].front_totals]
         
         def __iter__(self):
-            return self.totals.iteritems()
+            return self.totals.items()
         
         def __repr__(self):
             return str(self.totals)

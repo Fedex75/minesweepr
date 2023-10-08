@@ -17,7 +17,7 @@ class MinesweeperGame(object):
             self.mode = 'minecount'
         else:
             assert mine_prob >= 0. and mine_prob <= 1.
-            mines = [random.random() < mine_prob for i in xrange(self.num_cells)]
+            mines = [random.random() < mine_prob for i in range(self.num_cells)]
             self.mode = 'mineprob'
             self.mine_prob = mine_prob
         self.num_mines = len(filter(None, mines))
@@ -77,14 +77,14 @@ class GridMinesweeperGame(MinesweeperGame):
         super(GridMinesweeperGame, self).__init__(*args, **kwargs)
     
     def gen_cells(self):
-        for i in xrange(self.width):
-            for j in xrange(self.height):
+        for i in range(self.width):
+            for j in range(self.height):
                 yield (i, j)
 
     def adjacent(self, cell):
         i, j = cell
-        for ni in xrange(i - 1, i + 2):
-            for nj in xrange(j - 1, j + 2):
+        for ni in range(i - 1, i + 2):
+            for nj in range(j - 1, j + 2):
                 if (ni >= 0 and ni < self.width and
                     nj >= 0 and nj < self.height and
                     (ni, nj) != (i, j)):
@@ -119,8 +119,8 @@ def autoplay(game, **kwargs):
     moves = 0
     hopeless = False
     while True:
-        #print game
-        #print '----'
+        #print(game)
+        #print('----')
         result = game.outcome()
         if result is not None:
             return result, moves, hopeless
@@ -140,18 +140,18 @@ def autoplay(game, **kwargs):
                             yield e
         def get_cells(p):
             EPSILON = 1e-6
-            return _cells(k for k, v in solution.iteritems() if abs(v - p) < EPSILON)
+            return _cells(k for k, v in solution.items() if abs(v - p) < EPSILON)
 
         mines = get_cells(1.)
         safe = list(get_cells(0.))
 
         for c in mines:
             game.mark(c)
-            #print 'marking', c
+            #print('marking', c)
         if safe:
             for c in safe:
                 game.sweep(c)
-                #print 'clearing', c
+                #print('clearing', c)
         else:
             # find safest
             min_risk = min(solution.values())
@@ -165,7 +165,7 @@ def autoplay(game, **kwargs):
 
             move = random.choice(safest)
             game.sweep(move)
-            #print 'safest', move
+            #print('safest', move)
 
         moves += 1
 
@@ -250,7 +250,7 @@ def trial(new_game_str, tolerance=.5e-3, first_safe=True, threaded=True, **kwarg
         terminate = (err <= tolerance)
 
         if terminate or total_games % 5 == 0:
-            print '%d/%d %d/%d %.4f+/-%.4f %d %.1f' % (total_wins, total_games, hopeless_wins, total_hopeless, p, err, est_trials, est_time_left)
+            print(f'{total_wins}/{total_games} {hopeless_wins}/{total_hopeless} {p}+/-{err} {est_trials} {est_time_left}')
 
         if terminate:
             return (total_games, total_wins, total_hopeless, hopeless_wins)
